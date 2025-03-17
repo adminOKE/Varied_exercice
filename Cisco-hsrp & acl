@@ -1,0 +1,191 @@
+petite infrastructure réseau avec Cisco Packet Tracer en utilisant deux routeurs en configuration master/slave (HSRP), des ACL (Listes de Contrôle d'Accès) et une IP virtuelle de passerelle.
+Objectifs du Lab :
+	1. Configurer deux routeurs en HSRP (Hot Standby Router Protocol) pour la redondance de passerelle.
+	2. Mettre en place des ACL pour filtrer le trafic.
+	3. Utiliser une IP virtuelle comme passerelle par défaut pour les hôtes du réseau.
+Matériel nécessaire :
+	• 2 routeurs (par exemple, Cisco 1941)
+	• 2 commutateurs (par exemple, Cisco 2960)
+	• 2 PC
+	• Câbles appropriés (console, Ethernet, etc.)
+
+Étape 1 : Connexion des appareils
+	1. Routeurs :
+		○ Connecte les deux routeurs ensemble via leurs interfaces GigabitEthernet0/0 (par exemple, R1-G0/0 à R2-G0/0).
+		○ Connecte chaque routeur à un commutateur via leurs interfaces GigabitEthernet0/1 (R1-G0/1 à SW1 et R2-G0/1 à SW2).
+	2. Commutateurs :
+		○ Connecte chaque commutateur à un PC (SW1 à PC1 et SW2 à PC2).
+	3. PC :
+		○ Configure les PC avec des adresses IP statiques dans le même sous-réseau que l'IP virtuelle de la passerelle.
+
+Étape 2 : Configuration des interfaces sur les routeurs
+Routeur 1 (R1) :
+bash
+Copy
+Router>enableRouter# configure terminal!Configuration de l'interface G0/0 (lien entre R1 et R2)
+Router(config)# interface GigabitEthernet0/0
+Router(config-if)# ip address 192.168.1.1 255.255.255.252
+Router(config-if)# no shutdown
+Router(config-if)# exit
+! Configuration de l'interface G0/1 (lien vers SW1)Router(config)# interface GigabitEthernet0/1Router(config-if)# ip address 192.168.10.1 255.255.255.0Router(config-if)# no shutdownRouter(config-if)# exit
+Routeur 2 (R2) :
+bash
+Copy
+Router>enableRouter# configure terminal!Configuration de l'interface G0/0 (lien entre R2 et R1)
+Router(config)# interface GigabitEthernet0/0
+Router(config-if)# ip address 192.168.1.2 255.255.255.252
+Router(config-if)# no shutdown
+Router(config-if)# exit
+! Configuration de l'interface G0/1 (lien vers SW2)Router(config)# interface GigabitEthernet0/1Router(config-if)# ip address 192.168.10.2 255.255.255.0Router(config-if)# no shutdownRouter(config-if)# exit
+
+Étape 3 : Configuration de HSRP (IP virtuelle)
+Routeur 1 (R1) :
+bash
+Copy
+Router(config)# interface GigabitEthernet0/1Router(config-if)# standby 1 ip 192.168.10.254  ! IP virtuelle de la passerelleRouter(config-if)# standby 1 priority 110     ! R1 est le routeur masterRouter(config-if)# standby 1 preempt          ! Preempt permet de reprendre le rôle de master si R1 revient en ligneRouter(config-if)# exit
+Routeur 2 (R2) :
+bash
+Copy
+Router(config)# interface GigabitEthernet0/1Router(config-if)# standby 1 ip 192.168.10.254  ! IP virtuelle de la passerelleRouter(config-if)# standby 1 priority 100        ! R2 est le routeur slaveRouter(config-if)# standby 1 preempt             ! Preempt permet de reprendre le rôle de master si R2 revient en ligneRouter(config-if)# exit
+
+Étape 4 : Configuration des ACL
+Exemple d'ACL pour bloquer le trafic ICMP (ping) entre les PC et les routeurs :
+Routeur 1 (R1) :
+bash
+Copy
+Router(config)# access-list 100 deny icmp any anyRouter(config)# access-list 100 permit ip any anyRouter(config)# interface GigabitEthernet0/1Router(config-if)# ip access-group 100 inRouter(config-if)# exit
+Routeur 2 (R2) :
+bash
+Copy
+Router(config)# access-list 100 deny icmp any anyRouter(config)# access-list 100 permit ip any anyRouter(config)# interface GigabitEthernet0/1Router(config-if)# ip access-group 100 inRouter(config-if)# exit
+
+Étape 5 : Configuration des PC
+	• PC1 :
+		○ IP : 192.168.10.10
+		○ Masque : 255.255.255.0
+		○ Passerelle : 192.168.10.254 (IP virtuelle HSRP)
+	• PC2 :
+		○ IP : 192.168.10.20
+		○ Masque : 255.255.255.0
+		○ Passerelle : 192.168.10.254 (IP virtuelle HSRP)
+
+Étape 6 : Test de la configuration
+	1. Vérification HSRP :
+		○ Sur R1 et R2, utilise la commande show standby pour vérifier l'état de HSRP.
+		○ R1 devrait être le routeur actif (master) et R2 le routeur de secours (slave).
+	2. Test de connectivité :
+		○ Depuis PC1, essaie de pinguer PC2 (ping 192.168.10.20).
+		○ Si l'ACL est correctement configurée, le ping devrait échouer.
+	3. Test de redondance :
+		○ Éteins l'interface G0/1 de R1 (shutdown).
+		○ Vérifie que R2 prend le relais en tant que routeur actif.
+
+Conclusion
+Tu as maintenant une petite infrastructure avec deux routeurs en HSRP pour la redondance, des ACL pour filtrer le trafic, et une IP virtuelle de passerelle. N'hésite pas à ajuster les configurations selon tes besoins spécifiques. Si tu as des questions ou besoin d'aide supplémentaire, je suis là ! 😊
+
+Pour éviter de configurer manuellement chaque nouvel équipement dans un réseau, tu peux utiliser des protocoles et des outils qui automatisent la propagation des routes, des ACL (Listes de Contrôle d'Accès), et d'autres configurations. Voici quelques méthodes pour y parvenir :
+
+1. Utiliser un protocole de routage dynamique
+Les protocoles de routage dynamique permettent aux routeurs de partager automatiquement des informations sur les réseaux disponibles. Cela évite de configurer manuellement des routes statiques sur chaque routeur.
+Protocoles courants :
+	• OSPF (Open Shortest Path First) : Idéal pour les grands réseaux.
+	• EIGRP (Enhanced Interior Gateway Routing Protocol) : Propriétaire Cisco, efficace pour les réseaux de taille moyenne à grande.
+	• RIP (Routing Information Protocol) : Simple, mais moins adapté aux grands réseaux.
+Exemple de configuration OSPF :
+Sur R1 :
+bash
+Copy
+R1(config)# router ospf 1R1(config-router)# network 192.168.1.0 0.0.0.3 area 0R1(config-router)# network 192.168.10.0 0.0.0.255 area 0
+Sur R2 :
+bash
+Copy
+R2(config)# router ospf 1R2(config-router)# network 192.168.1.0 0.0.0.3 area 0R2(config-router)# network 192.168.20.0 0.0.0.255 area 0
+Résultat :
+	• Les routeurs partagent automatiquement les informations sur les réseaux connectés.
+	• Les routes sont mises à jour dynamiquement.
+
+2. Utiliser des modèles de configuration (Templates)
+Tu peux créer des modèles de configuration pour les routeurs et les commutateurs. Ces modèles peuvent être appliqués à chaque nouvel équipement pour gagner du temps.
+Exemple de modèle pour un routeur :
+bash
+Copy
+hostnameROUTER-TEMPLATE
+!interface GigabitEthernet0/0
+ ipaddress 192.168.1.1 255.255.255.252
+ no shutdown!interface GigabitEthernet0/1
+ ipaddress 192.168.10.1 255.255.255.0
+ no shutdown!router ospf 1network 192.168.1.0 0.0.0.3 area 0network 192.168.10.0 0.0.0.255 area 0!ipaccess-list extended ACL-TEMPLATE
+ permit ipany any
+!line vty 04login localtransport input ssh!end
+Avantages :
+	• Tu peux copier-coller ce modèle sur chaque nouvel équipement.
+	• Tu peux personnaliser rapidement les adresses IP et autres paramètres spécifiques.
+
+3. Utiliser un serveur DHCP pour les routeurs
+Tu peux configurer un serveur DHCP pour attribuer automatiquement des adresses IP aux interfaces des routeurs. Cela évite de configurer manuellement les adresses IP.
+Exemple de configuration DHCP sur un routeur :
+bash
+Copy
+R1(config)# ip dhcp pool ROUTER-POOLR1(dhcp-config)# network 192.168.1.0 255.255.255.252R1(dhcp-config)# default-router 192.168.1.1R1(dhcp-config)# exit
+Sur les autres routeurs :
+	• Configure les interfaces pour obtenir une adresse IP via DHCP :
+bash
+Copy
+R2(config)# interface GigabitEthernet0/0R2(config-if)# ip address dhcpR2(config-if)# no shutdown
+
+4. Utiliser un outil de gestion centralisée
+Des outils comme Cisco DNA Center, Ansible, ou Puppet permettent de déployer et gérer des configurations sur plusieurs équipements de manière centralisée.
+Exemple avec Ansible :
+	• Crée un playbook Ansible pour déployer des configurations sur plusieurs routeurs.
+	• Exemple de playbook :
+yaml
+Copy
+-hosts:routers
+  tasks:-name:Configure OSPF
+      ios_config:lines:-"router ospf 1"-"network 192.168.1.0 0.0.0.3 area 0"-"network 192.168.10.0 0.0.0.255 area 0"-name:Apply ACL
+      ios_config:lines:-"ip access-list extended ACL-TEMPLATE"-"permit ip any any"
+Avantages :
+	• Déploiement automatisé des configurations.
+	• Gestion centralisée des équipements.
+
+5. Utiliser des ACL centralisées
+Au lieu de configurer des ACL sur chaque routeur, tu peux utiliser une ACL centralisée sur un routeur ou un pare-feu, puis rediriger le trafic vers cet équipement.
+Exemple :
+	• Configure une ACL sur un routeur central (par exemple, R1).
+	• Redirige le trafic des autres routeurs vers R1 pour l'inspection.
+Sur R1 :
+bash
+Copy
+R1(config)# ip access-list extended CENTRAL-ACLR1(config-ext-nacl)# permit ip any any
+Sur R2 :
+bash
+Copy
+R2(config)# ip route 0.0.0.0 0.0.0.0 192.168.1.1
+
+6. Utiliser des scripts pour automatiser les configurations
+Tu peux écrire des scripts (en Python, Bash, etc.) pour configurer automatiquement les équipements via SSH ou Telnet.
+Exemple de script Python pour configurer un routeur :
+python
+Copy
+importparamiko
+defconfigure_router(ip,username,password):ssh =paramiko.SSHClient()ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())ssh.connect(ip,username=username,password=password)commands =["configure terminal","interface GigabitEthernet0/0","ip address 192.168.1.1 255.255.255.252","no shutdown","exit","router ospf 1","network 192.168.1.0 0.0.0.3 area 0","end"]forcmd incommands:stdin,stdout,stderr =ssh.exec_command(cmd)print(stdout.read().decode())ssh.close()configure_router("192.168.1.1","admin","cisco")
+Avantages :
+	• Automatisation des configurations.
+	• Réutilisable pour plusieurs équipements.
+
+7. Utiliser ZTP (Zero Touch Provisioning)
+ZTP permet à un nouvel équipement de se configurer automatiquement au démarrage en téléchargeant sa configuration depuis un serveur.
+Étapes :
+	1. Configure un serveur TFTP ou HTTP avec les fichiers de configuration.
+	2. Configure DHCP pour fournir l'adresse du serveur et le fichier de configuration.
+	3. Branche le nouvel équipement : il télécharge et applique automatiquement la configuration.
+
+Résumé
+Pour éviter de configurer manuellement chaque équipement :
+	1. Utilise un protocole de routage dynamique (OSPF, EIGRP, etc.).
+	2. Crée des modèles de configuration.
+	3. Utilise un serveur DHCP pour les adresses IP.
+	4. Adopte un outil de gestion centralisée (Cisco DNA Center, Ansible, etc.).
+	5. Centralise les ACL sur un équipement.
+	6. Automatise les configurations avec des scripts.
+	7. Utilise ZTP pour les nouveaux équipements.
